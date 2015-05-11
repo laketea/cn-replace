@@ -1,44 +1,74 @@
 #!/usr/bin/env node
 
 var fs = require('fs'),
-    path = require('path'),
-    program = require('commander'),
-    pkg = require('../package.json'),
-    version = pkg.version;
+	path = require('path'),
+	program = require('commander'),
+	pkg = require('../package.json'),
+	version = pkg.version,
+	fileList = [],
+	words = {},
+	HTML = 'html';
 
 program
-    .version(version)
-    .option('-i, --input <file path>', 'target file', resolvePath)
-    .option('-o, --output <file path>', 'out file', resolvePath)
-    .option('-s, --string <string>', 'chinese string');
+	.version(version)
+	.option('-s, --src <file path>', 'src path', resolvePath)
+	.option('-o, --output <file path>', 'out file', resolvePath)
 
 program.on('--help', function() {
-    console.log('  Examples:');
-    console.log('');
-    console.log('    cn2uc -i /path/to/inputfile -o /path/to/outfile');
-    console.log('    or');
-    console.log('    cn2uc -s "去哪吃啊？"');
-    console.log('');
+	console.log('  Examples:');
+	console.log('');
+	console.log('    cn-replace -s /path/to/ -d /path/to/outfile');
+	console.log('');
 });
+
+program
+	.command('extract <src> <output>')
+	.description('抽取汉字词语')
+	.action(function(src, output) {
+		main({
+			src: src,
+			output: output,
+			replaceSource: false,
+			saveWords: true
+		})
+	});
+
+program
+	.command('replace <src> <output>')
+	.description('替换汉字为国际化标签')
+	.action(function(src, output) {
+		main({
+			src: src,
+			output: output,
+			replaceSource: true,
+			saveWords: false
+		})
+	});
+
+program
+	.command('all <src> <output>')
+	.description('抽取汉字词语并替换源码中的汉字为国际化标签')
+	.action(function(src, output) {
+		main({
+			src: src,
+			output: output,
+			replaceSource: true,
+			saveWords: true
+		})
+	});
 
 program.parse(process.argv);
 
 /**
- * show help information if no argv
- */
-if (!program.input && !program.string) {
-    program.help();
-}
-
-/**
- * replace chinese to unicode
+ * replace chinese words
  * @param  {string} str chinese string
  * @return {string}     unicode string
  */
-function replaceCode(str) {
-    return str.replace(/[^\x00-\xff]/g, function(chinese) {
-        return escape(chinese).replace(/%u/g, '\\u');
-    });
+function replaceCode(str, isHtml) {
+	return str.replace(/[^\x00-\xff]+/g, function(chinese) {
+		words[chinese] = "";
+		return isHtml ? "{{'" + chinese + "' | translate}}" : "$translate.instant('" + chinese + "')";
+	});
 }
 
 /**
@@ -47,20 +77,65 @@ function replaceCode(str) {
  * @return {string}          resolved file path
  */
 function resolvePath(filePath) {
-    return filePath ? path.resolve(filePath) : '';
+	return filePath ? path.resolve(filePath) : '';
 }
 
-if (program.input) {
-    try {
-        var content = fs.readFileSync(program.input, 'utf-8');
-        content = replaceCode(content);
-        fs.writeFileSync(program.output || program.input, content, 'utf-8');
-        console.log('transfer ' + program.input + ' ok');
-    } catch (e) {
-        console.log(e);
-    }
+function endsWith(str, suffix) {
+	return String.prototype.endsWith ? str.endsWith(suffix) : str.indexOf(suffix, str.length - suffix.length) !== -1;;
 }
 
-if (program.string) {
-    console.log(replaceCode(program.string));
+function walk(path) {
+	var dirList = fs.readdirSync(path);
+
+	dirList.forEach(function(item) {
+		if (fs.statSync(path + '/' + item).isFile()) {
+			fileList.push(path + '/' + item);
+		}
+	});
+
+	dirList.forEach(function(item) {
+		if (fs.statSync(path + '/' + item).isDirectory()) {
+			if (item === 'vendor' || item === 'locales' || item === 'asset') return;
+			walk(path + '/' + item);
+		}
+	});
+}
+
+function replaceFile(input, isReplaceSource) {
+	try {
+		var content = fs.readFileSync(input, 'utf-8');
+		content = replaceCode(content, endsWith(input, HTML));
+		if (isReplaceSource) {
+			fs.writeFileSync(input, content, 'utf-8');
+		}
+		console.log('transfer ' + input + ' ok');
+	} catch (e) {
+		console.log(e);
+	}
+}
+
+function saveWords(output) {
+	var content = JSON.stringify(words, null, 4);
+	try {
+		fs.writeFileSync(output, content, 'utf-8');
+		console.log('save ' + output + ' ok');
+	} catch (e) {
+		console.log(e);
+	}
+}
+
+
+function main(opts) {
+
+	walk(opts.src);
+
+	var filePath;
+	while ((filePath = fileList.pop())) {
+		replaceFile(filePath, opts.replaceSource)
+	}
+
+	if (opts.saveWords) {
+		saveWords(opts.output);
+	}
+
 }
