@@ -1,13 +1,13 @@
-{
-    "name": "cn2uc",
-    "version": "1.0.3",
-    "description": "中文转unicode",
+﻿{
+    "name": "cn-replace",
+    "version": "0.0.1",
+    "description": "中文字符转换",
     "bin": {
-        "cn2uc": "./bin/cn2uc"
+        "cnReplace": "./bin/cn-replace"
     },
     "repository": {
         "type": "git",
-        "url": "git://github.com/chshouyu/cn2uc.git"
+        "url": "git://github.com/laketea/cn-replace.git"
     },
     "keywords": [
         "chinese",
@@ -15,12 +15,12 @@
         "transfer"
     ],
     "author": {
-        "name": "chshouyu",
-        "email": "chshouyu@126.com"
+        "name": "zhangwei",
+        "email": "laketea@163.com"
     },
     "license": "MIT",
     "bugs": {
-        "url": "https://github.com/chshouyu/cn2uc/issues"
+        "url": "https://github.com/laketea/cn-replace/issues"
     },
     "dependencies": {
         "commander": "~2.0.0"
